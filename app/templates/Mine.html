@@ -70,7 +70,7 @@
         <h2>🏆 Топ-игроки</h2>
         <div class="playmakers-list">
             {% for playmaker in tops %}
-            <div class="playmaker-item" data-player-name="{{ playmaker.name }}" data-league-name="{{ playmaker.league }}" onclick="searchPlayer('{{ playmaker.name }}', '{{ playmaker.league }}')">
+            <div class="playmaker-item" data-player-name="{{ playmaker.name }}" data-league-name="{{ playmaker.league }}" onclick="searchPlayer('{{ playmaker.name }}', 'ㅤ', '{{ playmaker.league }}')">
                 <span class="rank">{{ loop.index }}</span>
                 <div class="playmaker-info">
                     <span class="playmaker-name">{{ playmaker.name }}</span>

@@ -41,18 +41,18 @@ league = League(api)
 footballers = Footballers(api)
 # footballers.getPlayer(hiders, 307, 'Cristiano')
 db.init_app(app)
-# with app.app_context():
-#     leagues=Leagues.query.all()
-#     for i in leagues:
+with app.app_context():
+#    leagues=Leagues.query.all()
+#    for i in leagues:
 #         print(i.country,flush=True)
 #     # db.drop_all()
-#     # db.create_all()
-#     # with open("output.json",'r',encoding='utf-8') as file:
-#     #     json1=json.loads(file.read())
-#     # for i in json1:
-#     #     league2= Leagues(id=i['league']['id'],name=i['league']['name'],country=i['country']['name'])
-#     #     db.session.add(league2)
-#     #     db.session.commit()
+#    db.create_all()
+    with open("output.json",'r',encoding='utf-8') as file:
+        json1=json.loads(file.read())
+    for i in json1:
+        league2= Leagues(id=i['league']['id'],name=i['league']['name'],country=i['country']['name'])
+        db.session.add(league2)
+        db.session.commit()
 
 
 #---------------------------------------------------------------
