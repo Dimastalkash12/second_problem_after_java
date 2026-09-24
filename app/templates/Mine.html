@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск игрока</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/Mine.css') }}">
+    <style>
+        /* ====== Autocomplete для поля "Лига" ====== */
+        .autocomplete-wrap {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+    .autocomplete-wrap input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .suggestions {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        background: #1f2430;
+        border: 1px solid #3a4152;
+        border-radius: 8px;
+        max-height: 260px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+        box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+
+    .suggestions .suggestion-item {
+        padding: 10px 14px;
+        cursor: pointer;
+        color: #e8ecf1;
+        font-size: 15px;
+        border-bottom: 1px solid #2b3140;
+    }
+
+    .suggestions .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .suggestions .suggestion-item:hover,
+    .suggestions .suggestion-item.active {
+        background: #2e3648;
+    }
+
+    .suggestions .suggestion-empty {
+        padding: 10px 14px;
+        color: #8b93a7;
+        font-size: 14px;
+    }
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- ================= LEFT COLUMN - TOP PLAYMAKERS ================= -->
+<div class="left-column">
+    <div class="top-playmakers">
+        <h2>🏆 Топ-игроки</h2>
+        <div class="playmakers-list">
+            {% for playmaker in tops %}
+            <div class="playmaker-item" data-player-name="{{ playmaker.name }}" data-league-name="{{ playmaker.league }}" onclick="searchPlayer('{{ playmaker.name }}', '{{ playmaker.league }}')">
+                <span class="rank">{{ loop.index }}</span>
+                <div class="playmaker-info">
+                    <span class="playmaker-name">{{ playmaker.name }}</span>
+                    <span class="playmaker-requests">{{ playmaker.numOfReq }} запросов</span>
+                    <span class="playmaker-league">{{ playmaker.league }}</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="no-data">Нет данных о топ-игроках</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ================= CENTER COLUMN - SEARCH ================= -->
+<div class="center-column">
+
+    <!-- Search -->
+    <div class="search">
+        <h1>🔍 Поиск игрока</h1>
+        <form id="searchForm">
+            <input type="text" id="nameInput" placeholder="Имя игрока" required>
+            <div class="autocomplete-wrap">
+                <input type="text" id="leagueInput" placeholder="Лига" required autocomplete="off">
+
+                <!-- Скрытое поле для ID лиги -->
+                <input type="hidden" id="leagueIdInput">
+
+                <div class="suggestions" id="leagueSuggestions"></div>
+            </div>
+            <button type="submit">Найти</button>
+        </form>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="loading">Поиск игрока...</div>
+
+    <!-- Error -->
+    <div id="error" class="error"></div>
+
+    <!-- Player Info -->
+    <div id="player" class="player" style="display: none;">
+
+        <div class="player-header">
+            <img id="playerPhoto" class="player-photo" src="" alt="Фото игрока">
+            <div>
+                <h1 id="playerName" class="player-name"></h1>
+                <div class="player-info">
+                    <div><b>Национальность:</b> <span id="nationality"></span></div>
+                    <div><b>Возраст:</b> <span id="age"></span></div>
+                    <div><b>Дата рождения:</b> <span id="birthDate"></span></div>
+                    <div><b>Место рождения:</b> <span id="birthPlace"></span></div>
+                    <div><b>Страна рождения:</b> <span id="birthCountry"></span></div>
+                    <div><b>Рост:</b> <span id="height"></span> см</div>
+                    <div><b>Вес:</b> <span id="weight"></span> кг</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team -->
+        <div id="teamSection" class="section">
+            <h2>Команда</h2>
+            <div class="team-info">
+                <img id="teamLogo" src="" alt="Логотип команды">
+                <div>
+                    <div id="teamName" class="team-name"></div>
+                    <div>ID команды: <span id="teamId"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- League -->
+        <div id="leagueSection" class="section">
+            <h2>Лига</h2>
+            <div class="league-info">
+                <img id="leagueLogo" src="" alt="Логотип лиги">
+                <div>
+                    <div><b>Лига:</b> <span id="leagueName"></span></div>
+                    <div><b>Страна:</b> <span id="leagueCountry"></span></div>
+                    <div><b>Сезон:</b> <span id="leagueSeason"></span></div>
+                    <div><b>ID:</b> <span id="leagueId"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Sections -->
+        <div class="stats-container">
+            <div class="section">
+                <h2>Игры</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Появления</div><div id="appearences" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Стартовый состав</div><div id="lineups" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Минуты</div><div id="minutes" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Позиция</div><div id="position" class="stat-value">-</div></div>
+                    <div class="stat"><div class="stat-title">Рейтинг</div><div id="rating" class="stat-value">-</div></div>
+                    <div class="stat"><div class="stat-title">Номер</div><div id="number" class="stat-value">-</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Голы</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Голы</div><div id="goals" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Передачи</div><div id="assists" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Пенальти забито</div><div id="penaltyScored" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Пенальти пропущено</div><div id="penaltyMissed" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Удары</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Всего</div><div id="shotsTotal" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">В створ</div><div id="shotsOn" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Пасы</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Всего передач</div><div id="passesTotal" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Ключевые передачи</div><div id="passesKey" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Точность</div><div id="passesAccuracy" class="stat-value">-</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Дриблинг</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Попытки</div><div id="dribblesAttempts" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Успешные</div><div id="dribblesSuccess" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Пройдено игроков</div><div id="dribblesPast" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Единоборства</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Всего</div><div id="duelsTotal" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Выиграно</div><div id="duelsWon" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Фолы</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Совершено</div><div id="foulsCommitted" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Заработано</div><div id="foulsDrawn" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Карточки</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Жёлтые</div><div id="yellow" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Вторые жёлтые</div><div id="yellowred" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Красные</div><div id="red" class="stat-value">0</div></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Отборы</h2>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-title">Всего</div><div id="tacklesTotal" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Перехваты</div><div id="interceptions" class="stat-value">0</div></div>
+                    <div class="stat"><div class="stat-title">Блоки</div><div id="blocks" class="stat-value">0</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= RIGHT COLUMN - SEARCH HISTORY ================= -->
+<div class="right-column">
+    <div class="search-history">
+        <h2>📜 История запросов</h2>
+        <div id="historyList" class="history-list">
+            <p class="no-history">История запросов пуста</p>
+        </div>
+        <button id="clearHistory" class="clear-history-btn">Очистить историю</button>
+    </div>
+</div>
+
+</div>
+
+<script>
+    // ===== GLOBAL SEARCH FUNCTION =====
+    function searchPlayer(name, league, leagueId = null) {
+        document.getElementById("nameInput").value = name;
+
+        const leagueEl = document.getElementById("leagueInput");
+        const leagueIdEl = document.getElementById("leagueIdInput");
+
+        leagueEl.value = league;
+
+        if (leagueId) {
+            leagueEl.dataset.leagueId = leagueId;
+            leagueEl.dataset.isSelected = "1";
+
+            // Записываем ID в скрытое поле
+            leagueIdEl.value = leagueId;
+        } else {
+            delete leagueEl.dataset.leagueId;
+            delete leagueEl.dataset.isSelected;
+
+            // Очищаем скрытое поле
+            leagueIdEl.value = "";
+        }
+
+        hideSuggestions();
+        document.getElementById("searchForm").dispatchEvent(new Event('submit'));
+    }
+
+
+    const form = document.getElementById("searchForm");
+    const nameInput = document.getElementById("nameInput");
+    const leagueInput = document.getElementById("leagueInput");
+    const leagueIdInput = document.getElementById("leagueIdInput");
+    const player = document.getElementById("player");
+    const loading = document.getElementById("loading");
+    const error = document.getElementById("error");
+    const historyList = document.getElementById("historyList");
+    const clearHistoryBtn = document.getElementById("clearHistory");
+
+    // ===== AUTOCOMPLETE FOR LEAGUE =====
+    const suggestionsBox = document.getElementById("leagueSuggestions");
+    let leagueItems = [];
+    let leagueActiveIdx = -1;
+    let leagueDebounce = null;
+
+    function hideSuggestions() {
+        suggestionsBox.style.display = "none";
+        suggestionsBox.innerHTML = "";
+        leagueActiveIdx = -1;
+        leagueItems = [];
+    }
+
+    function renderSuggestions(list) {
+        if (!list.length) {
+            suggestionsBox.innerHTML = '<div class="suggestion-empty">Ничего не найдено</div>';
+            suggestionsBox.style.display = "block";
+            return;
+        }
+
+        suggestionsBox.innerHTML = "";
+
+        list.forEach((item, i) => {
+            const row = document.createElement("div");
+            row.className = "suggestion-item";
+            row.textContent = item.name +' '+item.country;
+            row.dataset.id = item.id;
+            row.dataset.index = i;
+
+            row.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                chooseSuggestion(i);
+            });
+
+            suggestionsBox.appendChild(row);
+        });
+
+        suggestionsBox.style.display = "block";
+        leagueActiveIdx = -1;
+    }
+
+    function chooseSuggestion(i) {
+        const item = leagueItems[i];
+
+        if (!item) return;
+
+        // В видимое поле записываем название
+        leagueInput.value = item.name;
+
+        // В скрытое поле записываем ID
+        leagueIdInput.value = item.id;
+
+        // Также сохраняем ID в data-атрибуте
+        leagueInput.dataset.leagueId = item.id;
+        leagueInput.dataset.isSelected = "1";
+
+        hideSuggestions();
+        leagueInput.focus();
+    }
+
+    function highlightSuggestion() {
+        const rows = suggestionsBox.querySelectorAll(".suggestion-item");
+
+        rows.forEach((r, i) => {
+            r.classList.toggle("active", i === leagueActiveIdx);
+        });
+
+        if (rows[leagueActiveIdx]) {
+            rows[leagueActiveIdx].scrollIntoView({
+                block: "nearest"
+            });
+        }
+    }
+
+    async function fetchLeagues(q) {
+        try {
+            const res = await fetch(`/api/league?search=${encodeURIComponent(q)}`);
+
+            if (!res.ok) {
+                throw new Error("Ошибка запроса лиг");
+            }
+
+            leagueItems = await res.json();
+            renderSuggestions(leagueItems);
+        } catch (e) {
+            console.error(e);
+            hideSuggestions();
+        }
+    }
+
+    leagueInput.addEventListener("input", () => {
+        clearTimeout(leagueDebounce);
+
+        const q = leagueInput.value.trim();
+
+        // Пользователь изменил название,
+        // поэтому старый ID больше недействителен
+        delete leagueInput.dataset.leagueId;
+        delete leagueInput.dataset.isSelected;
+
+        // Очищаем скрытый ID
+        leagueIdInput.value = "";
+
+        if (q.length < 2) {
+            hideSuggestions();
+            return;
+        }
+
+        leagueDebounce = setTimeout(() => fetchLeagues(q), 250);
+    });
+
+    leagueInput.addEventListener("keydown", (e) => {
+        const rows = suggestionsBox.querySelectorAll(".suggestion-item");
+        const isOpen = suggestionsBox.style.display === "block";
+
+        if (!isOpen || !rows.length) {
+            if (e.key === "Escape") {
+                hideSuggestions();
+            }
+
+            return;
+        }
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+
+            leagueActiveIdx = Math.min(
+                leagueActiveIdx + 1,
+                rows.length - 1
+            );
+
+            highlightSuggestion();
+
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+
+            leagueActiveIdx = Math.max(
+                leagueActiveIdx - 1,
+                0
+            );
+
+            highlightSuggestion();
+
+        } else if (e.key === "Enter") {
+            if (leagueActiveIdx >= 0) {
+                e.preventDefault();
+                chooseSuggestion(leagueActiveIdx);
+            } else {
+                hideSuggestions();
+            }
+
+        } else if (e.key === "Escape") {
+            hideSuggestions();
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".autocomplete-wrap")) {
+            hideSuggestions();
+        }
+    });
+
+    // ===== SEARCH HISTORY =====
+    function loadHistory() {
+        const history = JSON.parse(
+            localStorage.getItem('searchHistory') || '[]'
+        );
+
+        renderHistory(history);
+    }
+
+    function saveToHistory(name, league, leagueId) {
+        const history = JSON.parse(
+            localStorage.getItem('searchHistory') || '[]'
+        );
+
+        const entry = {
+            name: name,
+            league: league,
+            leagueId: leagueId || null,
+            timestamp: new Date().toLocaleString()
+        };
+
+        history.unshift(entry);
+
+        if (history.length > 20) {
+            history.pop();
+        }
+
+        localStorage.setItem(
+            'searchHistory',
+            JSON.stringify(history)
+        );
+
+        renderHistory(history);
+    }
+
+    function renderHistory(history) {
+        if (history.length === 0) {
+            historyList.innerHTML =
+                '<p class="no-history">История запросов пуста</p>';
+
+            return;
+        }
+
+        historyList.innerHTML = history.map((entry, index) => `
+            <div class="history-item" data-index="${index}">
+                <div class="history-search">
+                    <span class="history-name">${entry.name}</span>
+                    <span class="history-league">${entry.league}</span>
+                </div>
+                <span class="history-time">${entry.timestamp}</span>
+                <button class="history-delete" data-index="${index}">×</button>
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.history-item').forEach(item => {
+            const index = parseInt(item.dataset.index);
+
+            item.addEventListener('click', function(e) {
+                if (e.target.classList.contains('history-delete')) {
+                    return;
+                }
+
+                const history = JSON.parse(
+                    localStorage.getItem('searchHistory') || '[]'
+                );
+
+                const entry = history[index];
+
+                if (entry) {
+                    searchPlayer(
+                        entry.name,
+                        entry.league,
+                        entry.leagueId
+                    );
+                }
+            });
+        });
+
+        document.querySelectorAll('.history-delete').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+
+                const index = parseInt(this.dataset.index);
+
+                const history = JSON.parse(
+                    localStorage.getItem('searchHistory') || '[]'
+                );
+
+                history.splice(index, 1);
+
+                localStorage.setItem(
+                    'searchHistory',
+                    JSON.stringify(history)
+                );
+
+                renderHistory(history);
+            });
+        });
+    }
+
+    clearHistoryBtn.addEventListener('click', function() {
+        if (confirm('Очистить всю историю запросов?')) {
+            localStorage.removeItem('searchHistory');
+            renderHistory([]);
+        }
+    });
+
+    // ===== SUBMIT =====
+    form.addEventListener("submit", async function(event) {
+        event.preventDefault();
+
+        hideSuggestions();
+
+        const name = nameInput.value.trim();
+        const leagueText = leagueInput.value.trim();
+
+        // Получаем ID из скрытого поля
+        const leagueId = leagueIdInput.value;
+
+        if (!name || !leagueText) {
+            error.textContent = "Пожалуйста, заполните все поля";
+            error.style.display = "block";
+            return;
+        }
+
+        // Если ID лиги отсутствует,
+        // значит пользователь не выбрал лигу из подсказок
+        if (!leagueId) {
+            error.textContent = "Пожалуйста, выберите лигу из списка подсказок";
+            error.style.display = "block";
+            return;
+        }
+
+        // В историю сохраняем название лиги и её ID
+        saveToHistory(name, leagueText, leagueId);
+
+        loading.style.display = "block";
+        error.style.display = "none";
+
+        try {
+            const response = await fetch("/search", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                // Теперь отправляем ID лиги,
+                // а не её название
+                body: JSON.stringify({
+                    name: name,
+                    league: Number(leagueId)
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Ошибка поиска");
+            }
+
+            const p = data.result;
+
+            player.style.display = "block";
+
+            document.getElementById("playerPhoto").src = p.photo || '';
+            document.getElementById("playerName").textContent =
+                (p.name || '') + " " + (p.lastname || '');
+
+            document.getElementById("nationality").textContent =
+                p.nationality || '-';
+
+            document.getElementById("age").textContent =
+                p.age || '-';
+
+            document.getElementById("birthDate").textContent =
+                p.birth?.date || '-';
+
+            document.getElementById("birthPlace").textContent =
+                p.birth?.place || '-';
+
+            document.getElementById("birthCountry").textContent =
+                p.birth?.country || '-';
+
+            document.getElementById("height").textContent =
+                p.height || '-';
+
+            document.getElementById("weight").textContent =
+                p.weight || '-';
+
+            const stats = p.statistics?.[0];
+
+            if (stats) {
+                document.getElementById("teamLogo").src =
+                    stats.team?.logo || '';
+
+                document.getElementById("teamName").textContent =
+                    stats.team?.name || '-';
+
+                document.getElementById("teamId").textContent =
+                    stats.team?.id || '-';
+
+                document.getElementById("leagueLogo").src =
+                    stats.league?.logo || '';
+
+                document.getElementById("leagueName").textContent =
+                    stats.league?.name || '-';
+
+                document.getElementById("leagueCountry").textContent =
+                    stats.league?.country || '-';
+
+                document.getElementById("leagueSeason").textContent =
+                    stats.league?.season || '-';
+
+                document.getElementById("leagueId").textContent =
+                    stats.league?.id || '-';
+
+                document.getElementById("appearences").textContent =
+                    stats.games?.appearences ?? '-';
+
+                document.getElementById("lineups").textContent =
+                    stats.games?.lineups ?? '-';
+
+                document.getElementById("minutes").textContent =
+                    stats.games?.minutes ?? '-';
+
+                document.getElementById("position").textContent =
+                    stats.games?.position || '-';
+
+                document.getElementById("rating").textContent =
+                    stats.games?.rating || '-';
+
+                document.getElementById("number").textContent =
+                    stats.games?.number || '-';
+
+                document.getElementById("goals").textContent =
+                    stats.goals?.total ?? '-';
+
+                document.getElementById("assists").textContent =
+                    stats.goals?.assists ?? '-';
+
+                document.getElementById("penaltyScored").textContent =
+                    stats.penalty?.scored ?? '-';
+
+                document.getElementById("penaltyMissed").textContent =
+                    stats.penalty?.missed ?? '-';
+
+                document.getElementById("shotsTotal").textContent =
+                    stats.shots?.total ?? '-';
+
+                document.getElementById("shotsOn").textContent =
+                    stats.shots?.on ?? '-';
+
+                document.getElementById("passesTotal").textContent =
+                    stats.passes?.total ?? '-';
+
+                document.getElementById("passesKey").textContent =
+                    stats.passes?.key ?? '-';
+
+                document.getElementById("passesAccuracy").textContent =
+                    stats.passes?.accuracy ?? '-';
+
+                document.getElementById("dribblesAttempts").textContent =
+                    stats.dribbles?.attempts ?? '-';
+
+                document.getElementById("dribblesSuccess").textContent =
+                    stats.dribbles?.success ?? '-';
+
+                document.getElementById("dribblesPast").textContent =
+                    stats.dribbles?.past ?? '-';
+
+                document.getElementById("duelsTotal").textContent =
+                    stats.duels?.total ?? '-';
+
+                document.getElementById("duelsWon").textContent =
+                    stats.duels?.won ?? '-';
+
+                document.getElementById("foulsCommitted").textContent =
+                    stats.fouls?.committed ?? '-';
+
+                document.getElementById("foulsDrawn").textContent =
+                    stats.fouls?.drawn ?? '-';
+
+                document.getElementById("yellow").textContent =
+                    stats.cards?.yellow ?? '-';
+
+                document.getElementById("yellowred").textContent =
+                    stats.cards?.yellowred ?? '-';
+
+                document.getElementById("red").textContent =
+                    stats.cards?.red ?? '-';
+
+                document.getElementById("tacklesTotal").textContent =
+                    stats.tackles?.total ?? '-';
+
+                document.getElementById("interceptions").textContent =
+                    stats.tackles?.interceptions ?? '-';
+
+                document.getElementById("blocks").textContent =
+                    stats.tackles?.blocks ?? '-';
+            }
+
+            if (window.innerWidth <= 1024) {
+                document.querySelector('.center-column').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+
+        } catch (err) {
+            console.error(err);
+
+            error.textContent = err.message;
+            error.style.display = "block";
+
+            player.style.display = "none";
+
+        } finally {
+            loading.style.display = "none";
+        }
+    });
+
+    // Load history on page load
+    loadHistory();
+</script>
+
+</body>
+</html>
