@@ -11,8 +11,11 @@ response.raise_for_status()
 data = response.json()
 if data.get("errors"):
     raise RuntimeError(f"API error: {data['errors']}")
+
 leagues = data["response"]
+
 with open("output.json",'r',encoding='utf-8') as file:
-    json1=json.loads(file.read())
+    json1 = json.loads(file.read())
+
 for i in json1:
     print(i['league']['name'],i['league']['id'])
