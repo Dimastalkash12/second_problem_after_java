@@ -1,15 +1,8 @@
-import os
-import requests
+
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import JSONB
-
-from email.policy import default
-from enum import unique
-from click import DateTime
-from Footballers import Footballers
-from Playmaker import Playmaker
 
 db = SQLAlchemy()
 

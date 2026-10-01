@@ -1,16 +1,14 @@
 import os
-import json
+
 from datetime import datetime, timedelta
-import requests
+
 
 from flask import Flask, render_template, redirect, request, jsonify, url_for, flash
 from flask_login import login_required,LoginManager,login_user,logout_user,current_user
 from werkzeug.security import generate_password_hash
-from sqlalchemy import select,desc
-from sqlalchemy.testing.suite.test_reflection import users
 
 from User import User
-from Playmaker import playmaker
+
 from db import db, Leagues, Playmakers, Users
 from League import League
 from Footballers import Footballers
@@ -25,7 +23,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
     f"{os.getenv('DB_PORT')}/"
     f"{os.getenv('DB_NAME')}"
 )
-app.config['SECRET_KEY'] = 'top secret'
+api=os.getenv('API')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # connection with authorization
@@ -33,54 +32,24 @@ login_manager=LoginManager()
 login_manager.init_app(app)
 login_manager.login_view='login'
 
-api = "330758c4f9d6b00a73af59708b090e4d"
 hiders = {"x-apisports-key": api}
 
-response = requests.get("https://v3.football.api-sports.io/leagues", headers=hiders)
+footballers=Footballers(api)
 
 db.init_app(app)
 # with app.app_context():
-#    leagues=Leagues.query.all()
-#    for i in leagues:
-#         print(i.country,flush=True)
-    # db.drop_all()
-    # db.create_all()
-    # with open("output.json",'r',encoding='utf-8') as file:
-    #     json1=json.loads(file.read())
-    # for i in json1:
-    #     league2= Leagues(id=i['league']['id'],name=i['league']['name'],country=i['country']['name'])
-    #     db.session.add(league2)
-    #     db.session.commit()
+#    # leagues=Leagues.query.all()
+#    # for i in leagues:
+#    #      print(i.country,flush=True)
+#     db.drop_all()
+#     db.create_all()
+#     with open("output.json",'r',encoding='utf-8') as file:
+#         json1=json.loads(file.read())
+#     for i in json1:
+#         league2= Leagues(id=i['league']['id'],name=i['league']['name'],country=i['country']['name'])
+#         db.session.add(league2)
+#         db.session.commit()
 
-
-#---------------------------------------------------------------
-
-    # user = Users(login='admin2', password='12345', rights='admin')
-    # db.session.add(user)
-    # db.session.commit()
-    #
-    # results = Users.query.all()
-    # for i in results:
-    #     print(i.login)
-    #
-    # user=Users.query.filter_by(login='admin1').first()
-    # print(user.login)
-    #
-    # logins=['admin1','admin2']
-    # users1=Users.query.filter(Users.login.in_(logins)).all()
-    # for i in users1:
-    #     print(i.rights)
-
-    # user=Users.query.filter_by(login='admin1').first()
-    # user.password='54321'
-    # db.session.commit()
-    # print(user.password)
-
-    # user = Users.query.filter_by(login='admin1').first()
-    # db.session.delete(user)
-    # db.session.commit()
-# ------------------------------------------------------------
-# операции база данных
 
 @app.route('/main')
 @app.route('/')

@@ -20,4 +20,3 @@ class Footballers:
         playmaker = Playmaker(data)
         
         return playmaker
-
